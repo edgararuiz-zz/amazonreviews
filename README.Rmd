@@ -94,7 +94,7 @@ test_results[1,3] <- spark_in_memory_table[3]
 
 
 
-### Loal R
+### Local R
 
 ```{r}
 

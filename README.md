@@ -73,7 +73,7 @@
     test_results[1,2] <- spark_in_memory[3]
     test_results[1,3] <- spark_in_memory_table[3]
 
-### Loal R
+### Local R
 
     local_r  <- system.time({
       reviews_table <- read_csv("allfiles.csv", col_names = FALSE)
@@ -107,6 +107,8 @@
     test_results[3,2] <- local_r[3]
     test_results[3,3] <- local_r_table[3]
 
+## Performance results
+
     all_results <- data.frame(test_results) %>%
       select(category=X1,
              data_load=X2,
@@ -114,7 +116,9 @@
 
     print(all_results)
 
+```{}
     ##           category data_load     data_wrangle
     ## 1  spark_in_memory   112.666 5.02700000000002
     ## 2 spark_not_cached    38.069            29.17
     ## 3          local_R    240.95            3.202
+```
