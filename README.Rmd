@@ -5,165 +5,130 @@ output: md_document
 
 ```{r, message=FALSE, warning=FALSE}
 
-library(tidyverse)
+library(dplyr)
+library(readr)
 library(sparklyr)
 library(stringr)
 
-```
-
-### Downloading and saving the Review CSV files
-
-```{r}
-source_directory <- "http://snap.stanford.edu/data/amazon/productGraph/categoryFiles"
-all_files <- readLines("allfiles.txt")
-csv_files <- all_files[!is.na(str_locate(all_files,".csv")[,1])]
-csv_files <- csv_files[csv_files!="ratings_#508510.csv"] 
-csv_files <- csv_files[csv_files!="ratings_.csv"] 
-
-get_file <- function(filename)
-{
-  local_file <- file.path("reviewfiles", filename)
-  if(!file.exists(local_file))download.file(url = file.path(source_directory, filename), destfile = local_file)
-}
-
-get_files <- csv_files %>%
-  map(~get_file(.x))
+test_results <- matrix(nrow=3, ncol=3)
 
 ```
 
-### Merging all files into one large CSV file
+### Spark - Not Cached
 
 ```{r}
 
-create_allfiles <- function(filename){
-  category <- substr(filename, 9, nchar(filename))
-  category <- substr(category, 1, nchar(category)-4)
-  category <- str_replace_all(category, "_", " ")
-  current_file <- read_csv(file.path("reviewfiles", filename), col_names=FALSE)
-  current_file$category <- category
-  write_csv(current_file, path="allfiles.csv", append=TRUE)
-}
-  
-if(!file.exists("allfiles.csv")){
-  get_all_files<- csv_files %>%
-    map(~create_allfiles(.x))}
-
+spark_in_memory <- system.time({
+  conf <- spark_config()
+  conf$`sparklyr.shell.driver-memory` <- "16G"
+  sc <- spark_connect(master="local", config = conf)
+  spark_read_csv(sc, "reviews" ,"allfiles.csv", header = FALSE, memory=FALSE, repartition = 30) 
+})
 ```
 
-### Opening Spark connection
-
 ```{r}
-conf <- spark_config()
-conf$`sparklyr.shell.driver-memory` <- "16G"
-sc <- spark_connect(master="local", config = conf)
-```
-
-### Loading large CSV file into Spark
-
-Cached the file instead of the transformed dataset. Caching the transformed data frame used to take 10 minutes.
-
-```{r}
-spark_read_csv(sc, "reviews" ,"allfiles.csv", header = FALSE, memory=TRUE, repartition = 14) 
-```
-
-### Initial transformation
-
-```{r}
-
-df <- tbl(sc,"reviews") %>%
+spark_in_memory_table <- system.time({
+  reviews_table <- tbl(sc,"reviews") %>%
   select(user_id = V1,
          item_id = V2,
          rating = V3,
          timestamp = V4,
-         category = V5)
+         category = V5) 
+  
+  graph_table <- reviews_table %>%
+    group_by(category) %>%
+    summarise(avg_review = mean(rating),
+              review_count = n()) %>%
+    collect()
+  
 
-df <- df %>% group_by(user_id, item_id) %>% filter(row_number(item_id) == 1) %>% ungroup()
+  spark_disconnect_all()
+})
 
-hours_offset <- 8
-df <- df %>% mutate(timestamp_f = from_unixtime(timestamp + hours_offset*60*60))
-df <- df %>% mutate(hour = hour(timestamp_f),
-                    dayofweek = date_format(timestamp_f, 'EEEE'),
-                    month = month(timestamp_f),
-                    year = year(timestamp_f))
+rm(graph_table)
+rm(reviews_table)
 
-df <- df %>% group_by(user_id) %>% mutate(user_nth = min_rank(timestamp)) %>% ungroup()
-df <- df %>% group_by(item_id) %>% mutate(item_nth = min_rank(timestamp)) %>% ungroup()
-
-#sdf_register(df,"data_t")
-#system.time(tbl_cache(sc, "data_t"))
-#df_t <-tbl(sc, "data_t")
-
-#nrow(df_t <-tbl(sc, "data_t"))
-
-df_t <- df
-```
-
-### Review summarization
-
-```{r}
-df_agg <- df_t %>%
-  group_by(category) %>%
-  summarize(count = n(), avg_rating = mean(rating)) %>%
-  arrange(desc(avg_rating)) %>%
-  collect()
-df_agg
-```
-
-### Reviews Given by User
-
-```{r}
-df_user_review_counts <- df_t %>%
-                          group_by(user_id) %>%
-                          summarize(num_reviews=n()) %>%
-                          group_by(num_reviews) %>%
-                          summarize(total=n()) %>%
-                          arrange(num_reviews) %>%
-                          collect()
-
-df_temp <- df_user_review_counts %>%
-              mutate(norm = total/sum(total), prop = cumsum(norm)) %>%
-              filter(num_reviews <= 50)
-```
-
-```{r}
-print(ggplot(df_temp, aes(x=num_reviews, y=prop)) +
-          geom_line(color="#2980b9") +
-          labs(title="Cumulative Proportion of # Amazon Reviews Given by User", x="# Reviews Given By User", y="Cumulative Proportion of All Amazon Reviewers"))
+test_results[2,1] <- "spark_not_cached"
+test_results[2,2] <- spark_in_memory[3]
+test_results[2,3] <- spark_in_memory_table[3]
 
 ```
+
+### Spark Cached
 
 ```{r}
 
-df_agg <- df_t %>%
-            group_by(category) %>%
-            summarize(count = n(), avg_rating = mean(rating)) %>%
-            arrange(desc(count)) %>%
-            collect()
-df_agg
+spark_in_memory <- system.time({
+  conf <- spark_config()
+  conf$`sparklyr.shell.driver-memory` <- "16G"
+  sc <- spark_connect(master="local", config = conf)
+  spark_read_csv(sc, "reviews" ,"allfiles.csv", header = FALSE, memory=TRUE, repartition = 30) 
+})
+
+spark_in_memory_table <- system.time({
+  reviews_table <- tbl(sc,"reviews") %>%
+  select(user_id = V1,
+         item_id = V2,
+         rating = V3,
+         timestamp = V4,
+         category = V5) 
+  
+  graph_table <- reviews_table %>%
+    group_by(category) %>%
+    summarise(avg_review = mean(rating),
+              review_count = n()) %>%
+    collect()
+  
+
+  spark_disconnect_all()
+})
+
+rm(graph_table)
+rm(reviews_table)
+
+test_results[1,1] <- "spark_in_memory"
+test_results[1,2] <- spark_in_memory[3]
+test_results[1,3] <- spark_in_memory_table[3]
+
 ```
+
+
+
+### Loal R
 
 ```{r}
-df_temp <- df_agg %>%
-  top_n(10)
-df_temp$category <- factor(df_temp$category, levels=rev(df_temp$category))
-print(ggplot(df_temp, aes(x=category, y=avg_rating)) +
-          geom_bar(stat="identity", fill="#e67e22", alpha=0.9) +
-          geom_text(aes(label=sprintf("%0.2f", avg_rating)), color="white", hjust=1.25) +
-          coord_flip() +
-   theme(plot.title=element_text(vjust=0, hjust=1), axis.title.y=element_blank()) +
-          labs(title="Average Rating Score Given For Amazon Reviews, by Product Category", y="Avg. Rating For Reviews Given in Category"))
+
+local_r  <- system.time({
+  reviews_table <- read_csv("allfiles.csv", col_names = FALSE)
+})
+
+local_r_table <- system.time({
+  reviews_table <- reviews_table %>%
+  select(user_id = X1,
+         item_id = X2,
+         rating = X3,
+         timestamp = X4,
+         category = X5) 
+  
+  graph_table <- reviews_table %>%
+    group_by(category) %>%
+    summarise(avg_review = mean(rating),
+              review_count = n()) 
+  
+})
+
+test_results[3,1] <- "local_R"
+test_results[3,2] <- local_r[3]
+test_results[3,3] <- local_r_table[3]
 
 ```
+
 
 ```{r}
-spark_disconnect(sc)
+all_results <- data.frame(test_results) %>%
+  select(category=X1,
+         data_load=X2,
+         data_wrangle=X3)
+
+print(all_results)
 ```
-
-## Appendix 
-
-### List of CSV files loaded into memory
-
-```{r}
-list.files(path="./reviewfiles")
-```
-
