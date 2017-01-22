@@ -1,0 +1,99 @@
+---
+title: "Amazon Reviews"
+output: html_notebook
+---
+
+This notebook wil perform the following:
+
+- Download the individual files
+- Create a single large file for analysis
+- Opens a local Spark session
+- Reads the CSV file into Spark
+- Caches the transformed data frame
+
+
+```{r, message=FALSE}
+suppressMessages({
+  library(tidyverse)
+  library(sparklyr)
+  library(stringr)
+  })
+```
+
+```{r}
+source_directory <- "http://snap.stanford.edu/data/amazon/productGraph/categoryFiles"
+all_files <- readLines("allfiles.txt")
+csv_files <- all_files[!is.na(str_locate(all_files,".csv")[,1])]
+csv_files <- csv_files[csv_files!="ratings_#508510.csv"] 
+csv_files <- csv_files[csv_files!="ratings_.csv"] 
+```
+
+
+```{r}
+get_file <- function(filename)
+{
+  local_file <- file.path("reviewfiles", filename)
+  if(!file.exists(local_file))download.file(url = file.path(source_directory, filename), destfile = local_file)
+}
+
+get_files <- csv_files %>%
+  map(~get_file(.x))
+
+```
+
+```{r}
+
+create_allfiles <- function(filename){
+  category <- substr(filename, 9, nchar(filename))
+  category <- substr(category, 1, nchar(category)-4)
+  category <- str_replace_all(category, "_", " ")
+  current_file <- read_csv(file.path("reviewfiles", filename), col_names=FALSE)
+  current_file$category <- category
+  write_csv(current_file, path="allfiles.csv", append=TRUE)
+}
+  
+
+
+if(!file.exists("allfiles.csv")){
+  get_all_files<- csv_files %>%
+    map(~create_allfiles(.x))}
+```
+
+```{r}
+conf <- spark_config()
+conf$`sparklyr.shell.driver-memory` <- "16G"
+sc <- spark_connect(master="local", config = conf)
+```
+
+```{r}
+
+spark_read_csv(sc, "reviews" ,"allfiles.csv", header = FALSE, memory=FALSE, repartition = 14) 
+
+```
+
+```{r}
+
+df <- tbl(sc,"reviews") %>%
+  select(user_id = V1,
+         item_id = V2,
+         rating = V3,
+         timestamp = V4,
+         category = V5)
+
+df <- df %>% group_by(user_id, item_id) %>% filter(row_number(item_id) == 1) %>% ungroup()
+
+hours_offset <- 8
+df <- df %>% mutate(timestamp_f = from_unixtime(timestamp + hours_offset*60*60))
+df <- df %>% mutate(hour = hour(timestamp_f),
+                    dayofweek = date_format(timestamp_f, 'EEEE'),
+                    month = month(timestamp_f),
+                    year = year(timestamp_f))
+
+df <- df %>% group_by(user_id) %>% mutate(user_nth = min_rank(timestamp)) %>% ungroup()
+df <- df %>% group_by(item_id) %>% mutate(item_nth = min_rank(timestamp)) %>% ungroup()
+
+df_t <- df %>% sdf_register("data_t")
+system.time(tbl_cache(sc, "data_t"))
+
+nrow(tbl(sc, "data_t"))
+```
