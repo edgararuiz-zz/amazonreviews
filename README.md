@@ -47,6 +47,7 @@ transformed data frame used to take 10 minutes.
 
     spark_read_csv(sc, "reviews" ,"allfiles.csv", header = FALSE, memory=TRUE, repartition = 14) 
 
+```{}
     ## Source:   query [8.287e+07 x 5]
     ## Database: spark connection master=local[8] app=sparklyr local=TRUE
     ## 
@@ -63,6 +64,7 @@ transformed data frame used to take 10 minutes.
     ## 9  A3MCNTQ29LEE76 B00005UKI4     5 1203292800 All Beauty
     ## 10  A6P2DSY4RR2FW B00005UKI4     5 1275004800 All Beauty
     ## # ... with 8.287e+07 more rows
+```
 
 ### Initial transformation
 
@@ -101,7 +103,8 @@ transformed data frame used to take 10 minutes.
       arrange(desc(avg_rating)) %>%
       collect()
     df_agg
-
+    
+```{}
     ## # A tibble: 81 × 3
     ##                                    category count avg_rating
     ##                                       <chr> <dbl>      <dbl>
@@ -116,6 +119,7 @@ transformed data frame used to take 10 minutes.
     ## 9                                      Rock  6203   4.637111
     ## 10                                   Gospel  2026   4.634748
     ## # ... with 71 more rows
+```
 
 ### Reviews Given by User
 
@@ -144,6 +148,7 @@ transformed data frame used to take 10 minutes.
                 collect()
     df_agg
 
+```{}
     ## # A tibble: 81 × 3
     ##                       category    count avg_rating
     ##                          <chr>    <dbl>      <dbl>
@@ -158,6 +163,7 @@ transformed data frame used to take 10 minutes.
     ## 9     Health and Personal Care  2971849   4.107928
     ## 10            Apps for Android  2602175   3.991202
     ## # ... with 71 more rows
+```
 
     df_temp <- df_agg %>%
       top_n(10)
