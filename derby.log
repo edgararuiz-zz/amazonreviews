@@ -1,7 +1,7 @@
 ----------------------------------------------------------------
-Sat Jan 21 14:38:01 CST 2017:
-Booting Derby version The Apache Software Foundation - Apache Derby - 10.11.1.1 - (1616546): instance a816c00e-0159-c2c0-0701-00000b5084f0 
-on database directory memory:/Users/edgar/amazonreviews/databaseName=metastore_db with class loader org.apache.spark.sql.hive.client.IsolatedClientLoader$$anon$1@3ed03fc0 
+Tue Jan 24 16:28:11 CST 2017:
+Booting Derby version The Apache Software Foundation - Apache Derby - 10.11.1.1 - (1616546): instance a816c00e-0159-d297-f644-00000b2906f0 
+on database directory memory:/Users/edgar/amazonreviews/databaseName=metastore_db with class loader org.apache.spark.sql.hive.client.IsolatedClientLoader$$anon$1@11ce35f5 
 Loaded from file:/Users/edgar/Library/Caches/spark/spark-2.0.0-bin-hadoop2.7/jars/derby-10.11.1.1.jar
 java.vendor=Oracle Corporation
 java.runtime.version=1.8.0_111-b14

@@ -1,28 +1,16 @@
----
-title: "Performance comparison readr and Spark local"
-output: md_document
----
-
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
-```
 
-```{r, echo=FALSE, message=FALSE}
+
 all_results <- read_csv("performance.csv") %>%
   mutate(filesize = filesize/1024,
-         gb_per_sec = filesize / data_load) %>%
-  mutate(category = ifelse(category=="local_R", "readr", category),
-         category = ifelse(category=="spark_in_memory", "sparklyr (memory=TRUE)", category),
-         category = ifelse(category=="spark_not_cached", "sparklyr (memory=FALSE)", category))
+         gb_per_sec = filesize / data_load)
 
 ggplot(data=all_results, aes(x=filesize, y =data_wrangle+data_load, color=category)) +
   geom_line() +
   geom_point() +
   labs(x="File Size (GB)", y="Data Load + Data Wrangle", title="Load+Wrangle Times")
 
-all_results <- filter(all_results, category!="sparklyr (memory=FALSE)")
+all_results <- filter(all_results, category!="spark_not_cached")
 
 ggplot(data=all_results, aes(x=filesize, y =gb_per_sec, color=category)) +
   geom_line() +
@@ -41,4 +29,5 @@ ggplot(data=all_results, aes(x=filesize, y =data_wrangle, color=category)) +
   labs(x="File Size (GB)", y="Seconds", title="Data Wrangle times")
 
 
-```
+
+

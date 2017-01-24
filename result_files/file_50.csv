@@ -1,0 +1,4 @@
+category,data_load,data_wrangle,rows,cols,filesize
+spark_in_memory,81.778,6.53,50000001,5,2528.689781188965
+spark_not_cached,30.647,43.627,50000001,5,2528.689781188965
+local_R,173.442,2.642,50000001,5,2528.689781188965
