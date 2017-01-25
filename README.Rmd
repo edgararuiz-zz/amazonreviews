@@ -11,31 +11,27 @@ library(tidyverse)
 
 ```{r, echo=FALSE, message=FALSE}
 all_results <- read_csv("performance.csv") %>%
+  filter(category == "local_R") %>%
+  mutate(category= "readr",
+         core_number = 1) %>%
+  bind_rows(mutate(read_csv("core_performance.csv"), category="spark")) %>%
   mutate(filesize = filesize/1024,
-         gb_per_sec = filesize / data_load) %>%
-  mutate(category = ifelse(category=="local_R", "readr", category),
-         category = ifelse(category=="spark_in_memory", "sparklyr (memory=TRUE)", category),
-         category = ifelse(category=="spark_not_cached", "sparklyr (memory=FALSE)", category))
+         gb_per_sec = filesize / data_load,
+         label=paste(category,core_number,sep="-")) %>%
+  filter(filesize < 3.2)
 
-ggplot(data=all_results, aes(x=filesize, y =data_wrangle+data_load, color=category)) +
-  geom_line() +
-  geom_point() +
-  labs(x="File Size (GB)", y="Data Load + Data Wrangle", title="Load+Wrangle Times")
-
-all_results <- filter(all_results, category!="sparklyr (memory=FALSE)")
-
-ggplot(data=all_results, aes(x=filesize, y =gb_per_sec, color=category)) +
+ggplot(data=all_results, aes(x=filesize, y =gb_per_sec, color=label)) +
   geom_line() +
   geom_point() +
   labs(x="File Size (GB)", y="Gigabytes per second", title="Gigabytes per second to load")
 
 
-ggplot(data=all_results, aes(x=filesize, y =data_load, color=category)) +
+ggplot(data=all_results, aes(x=filesize, y =data_load, color=label)) +
   geom_line() +
   geom_point()+
   labs(x="File Size (GB)", y="Seconds", title="Data Load times")
 
-ggplot(data=all_results, aes(x=filesize, y =data_wrangle, color=category)) +
+ggplot(data=all_results, aes(x=filesize, y =data_wrangle, color=label)) +
   geom_line() +
   geom_point() +
   labs(x="File Size (GB)", y="Seconds", title="Data Wrangle times")
