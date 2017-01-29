@@ -12,6 +12,7 @@ performance_test <-function(filename, cores){
     conf <- spark_config()
     conf$`sparklyr.shell.driver-memory` <- "16G"
     conf$`sparklyr.cores.local` <- cores
+    #conf$spark.default.parallelism<- cores
     sc <- spark_connect(master="local", config = conf, version="2.0.0")
     spark_read_csv(sc, "reviews" ,file.path("perf_files", filename), header = FALSE, memory=TRUE, repartition = 30) 
   })
@@ -55,9 +56,9 @@ performance_test <-function(filename, cores){
   
 }
 
-test_files <- 1:4
+test_files <- 4
 test_files %>%
-  map(~performance_test("file_70.csv",.x))
+  map(~performance_test("file_40.csv",.x))
 
 
 all_results <- NULL
